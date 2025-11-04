@@ -84,57 +84,136 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script>
-        function validateEntryTime(form) {
-            const entryTimeInput = form.querySelector('input[name="entryTime"]');
-            if (!entryTimeInput.value) {
-                alert('입장 시간을 입력해주세요.');
-                return false;
+        function renderTables(tables) {
+            const tableGrid = document.querySelector('.table-grid');
+            tableGrid.innerHTML = ''; // Clear existing content
+
+            tables.forEach((table, index) => {
+                const tableBox = document.createElement('div');
+                tableBox.className = 'table-box';
+
+                let content = `<h4>${index + 1}번 테이블 (${table.capacity}인석)</h4>`;
+
+                const now = new Date();
+                const estimatedEndTime = table.estimatedEndTime ? new Date(table.estimatedEndTime) : null;
+
+                if (estimatedEndTime && now < estimatedEndTime) {
+                    // In Use
+                    content += `
+                        <div class="table-status-form">
+                            <p class="mb-2">~ <span class="fw-bold text-accent">${estimatedEndTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span></p>
+                            <form action="/admin/management/clear" method="post" onsubmit="submitFormWithAjax(event)">
+                                <input type="hidden" name="tableId" value="${table.id}" />
+                                <button type="submit" class="btn btn-danger btn-sm rounded-circle clear-btn"><i class="fa-solid fa-xmark"></i></button>
+                            </form>
+                        </div>
+                    `;
+                } else {
+                    // Available
+                    content += `
+                        <div class="table-status-form">
+                            <p class="text-success fw-bold mb-2">이용 가능</p>
+                            <form action="/admin/management/entry" method="post" onsubmit="submitFormWithAjax(event)">
+                                <input type="hidden" name="tableId" value="${table.id}" />
+                                <input type="time" name="entryTime" step="60" class="form-control form-control-sm mb-2" required>
+                                <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-person-walking-arrow-right"></i> 입장</button>
+                            </form>
+                        </div>
+                    `;
+                }
+                tableBox.innerHTML = content;
+                tableGrid.appendChild(tableBox);
+            });
+        }
+
+        function renderWaitingList(waitingList) {
+            const tbody = document.getElementById("waiting-list-body");
+            tbody.innerHTML = "";
+
+            waitingList.forEach(waiting => {
+                const row = document.createElement("tr");
+                const statusClass = `status-badge status-${waiting.status.toLowerCase()}`;
+
+                let managementButtons = "";
+                if (waiting.status === 'WAITING') {
+                    managementButtons = `
+                        <form action="/admin/management/update" method="post" style="display: inline;" class="me-1" onsubmit="submitFormWithAjax(event)">
+                            <input type="hidden" name="waitingId" value="${waiting.id}" />
+                            <input type="hidden" name="status" value="COMPLETE" />
+                            <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> 입장</button>
+                        </form>
+                        <form action="/admin/management/update" method="post" style="display: inline;" onsubmit="submitFormWithAjax(event)">
+                            <input type="hidden" name="waitingId" value="${waiting.id}" />
+                            <input type="hidden" name="status" value="CANCEL" />
+                            <button type="submit" class="btn btn-warning btn-sm"><i class="fa-solid fa-ban"></i> 취소</button>
+                        </form>
+                    `;
+                }
+
+                row.innerHTML = `
+                    <td>${waiting.people}</td>
+                    <td>${waiting.phone}</td>
+                    <td>${waiting.registeredAt}</td>
+                    <td><span class="${statusClass}">${waiting.status}</span></td>
+                    <td>${managementButtons}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        async function fetchData() {
+            try {
+                const [tablesResponse, waitingListResponse] = await Promise.all([
+                    fetch("/admin/api/tables"),
+                    fetch("/admin/api/waiting-list")
+                ]);
+
+                const tables = await tablesResponse.json();
+                const waitingList = await waitingListResponse.json();
+
+                renderTables(tables);
+                renderWaitingList(waitingList);
+
+            } catch (error) {
+                console.error('Error fetching data:', error);
             }
-            return true;
         }
 
-        function fetchWaitingList() {
-            fetch("/admin/api/waiting-list")
-                .then(response => response.json())
-                .then(data => {
-                    const tbody = document.getElementById("waiting-list-body");
-                    tbody.innerHTML = "";
+        async function submitFormWithAjax(event) {
+            event.preventDefault(); // Prevent default full-page submission
+            const form = event.target;
+            const formData = new FormData(form);
+            const action = form.getAttribute('action');
 
-                    data.forEach(waiting => {
-                        const row = document.createElement("tr");
-                        const statusClass = `status-badge status-${waiting.status.toLowerCase()}`;
+            // Client-side validation for entry time
+            if (action.includes('/entry')) {
+                const entryTimeInput = form.querySelector('input[name="entryTime"]');
+                if (!entryTimeInput.value) {
+                    alert('입장 시간을 입력해주세요.');
+                    return;
+                }
+            }
 
-                        let managementButtons = "";
-                        if (waiting.status === 'WAITING') {
-                            managementButtons = `
-                                <form action="/admin/management/update" method="post" style="display: inline;" class="me-1">
-                                    <input type="hidden" name="waitingId" value="${waiting.id}" />
-                                    <input type="hidden" name="status" value="COMPLETE" />
-                                    <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> 입장</button>
-                                </form>
-                                <form action="/admin/management/update" method="post" style="display: inline;">
-                                    <input type="hidden" name="waitingId" value="${waiting.id}" />
-                                    <input type="hidden" name="status" value="CANCEL" />
-                                    <button type="submit" class="btn btn-warning btn-sm"><i class="fa-solid fa-ban"></i> 취소</button>
-                                </form>
-                            `;
-                        }
+            try {
+                const response = await fetch(action, {
+                    method: 'POST',
+                    body: new URLSearchParams(formData)
+                });
 
-                        row.innerHTML = `
-                            <td>${waiting.people}</td>
-                            <td>${waiting.phone}</td>
-                            <td>${waiting.registeredAt}</td>
-                            <td><span class="${statusClass}">${waiting.status}</span></td>
-                            <td>${managementButtons}</td>
-                        `;
-                        tbody.appendChild(row);
-                    });
-                })
-                .catch(error => console.error('Error fetching waiting list:', error));
+                if (response.ok) {
+                    fetchData(); // Refresh data on success
+                } else {
+                    console.error('Form submission failed:', response.statusText);
+                    alert('요청 처리에 실패했습니다.');
+                }
+            } catch (error) {
+                console.error('Error submitting form:', error);
+                alert('오류가 발생했습니다.');
+            }
         }
 
-        document.addEventListener("DOMContentLoaded", fetchWaitingList);
-        setInterval(fetchWaitingList, 15000);
+        document.addEventListener("DOMContentLoaded", fetchData);
+        setInterval(fetchData, 15000);
     </script>
 </body>
 </html>

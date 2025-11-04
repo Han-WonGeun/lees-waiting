@@ -97,4 +97,10 @@ public class AdminController {
     public List<WaitingInfo> getWaitingListApi() {
         return adminService.getWaitingList();
     }
+
+    @GetMapping("/api/tables")
+    @ResponseBody
+    public List<RestaurantTable> getTablesApi() {
+        return adminService.getAllTables();
+    }
 }
