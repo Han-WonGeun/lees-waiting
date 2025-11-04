@@ -41,8 +41,9 @@
                         
                         <!-- 이용 중일 때 -->
                         <div th:if="${table.estimatedEndTime != null && #temporals.createNow().isBefore(table.estimatedEndTime)}" class="table-status-form">
-                            <p class="mb-2">~ <span th:text="${#temporals.format(table.estimatedEndTime, 'HH:mm')}" class="fw-bold text-accent"></span></p>
-                            <form th:action="@{/admin/management/clear}" method="post">
+                            <p class="mb-2" th:if="${table.entryTime != null}"><span th:text="${#temporals.format(table.entryTime, 'HH:mm')}" class="fw-bold text-accent"></span> ~ <span th:text="${#temporals.format(table.estimatedEndTime, 'HH:mm')}" class="fw-bold text-accent"></span></p>
+                            <p class="mb-2" th:unless="${table.entryTime != null}">~ <span th:text="${#temporals.format(table.estimatedEndTime, 'HH:mm')}" class="fw-bold text-accent"></span></p>
+                            <form th:action="@{/admin/management/clear}" method="post" onsubmit="submitFormWithAjax(event)">
                                 <input type="hidden" name="tableId" th:value="${table.id}" />
                                 <button type="submit" class="btn btn-danger btn-sm rounded-circle clear-btn"><i class="fa-solid fa-xmark"></i></button>
                             </form>
@@ -51,7 +52,7 @@
                         <!-- 이용 가능할 때 -->
                         <div th:unless="${table.estimatedEndTime != null && #temporals.createNow().isBefore(table.estimatedEndTime)}" class="table-status-form">
                             <p class="text-success fw-bold mb-2">이용 가능</p>
-                            <form th:id="'entryForm_' + ${table.id}" th:action="@{/admin/management/entry}" method="post" onsubmit="return validateEntryTime(this);">
+                            <form th:id="'entryForm_' + ${table.id}" th:action="@{/admin/management/entry}" method="post" onsubmit="submitFormWithAjax(event)">
                                 <input type="hidden" name="tableId" th:value="${table.id}" />
                                 <input type="time" name="entryTime" step="60" class="form-control form-control-sm mb-2" required>
                                 <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-person-walking-arrow-right"></i> 입장</button>
@@ -89,19 +90,46 @@
             tableGrid.innerHTML = ''; // Clear existing content
 
             tables.forEach((table, index) => {
+                console.log(`Table ${table.id}: entryTime=${table.entryTime}, estimatedEndTime=${table.estimatedEndTime}`); // Debug log
                 const tableBox = document.createElement('div');
                 tableBox.className = 'table-box';
 
                 let content = `<h4>${index + 1}번 테이블 (${table.capacity}인석)</h4>`;
 
-                const now = new Date();
+                const clientNow = new Date(); // 클라이언트의 현재 시각
                 const estimatedEndTime = table.estimatedEndTime ? new Date(table.estimatedEndTime) : null;
+                
+                // 'now' 변수를 estimatedEndTime의 날짜를 기준으로 조정
+                let effectiveNow = new Date(clientNow);
+                if (estimatedEndTime) {
+                    effectiveNow.setFullYear(estimatedEndTime.getFullYear());
+                    effectiveNow.setMonth(estimatedEndTime.getMonth());
+                    effectiveNow.setDate(estimatedEndTime.getDate());
+                }
 
-                if (estimatedEndTime && now < estimatedEndTime) {
+                let entryTime = null;
+                if (table.entryTime && estimatedEndTime) {
+                    const [hours, minutes] = table.entryTime.split(':');
+                    entryTime = new Date(estimatedEndTime); // estimatedEndTime의 날짜를 사용
+                    entryTime.setHours(hours, minutes, 0, 0);
+                }
+                console.log(`Parsed entryTime=${entryTime}, Parsed estimatedEndTime=${estimatedEndTime}`); // Debug log
+                console.log(`Client current time (clientNow): ${clientNow}`); // Original client time
+                console.log(`Effective current time (effectiveNow): ${effectiveNow}`); // Adjusted client time for comparison
+                console.log(`Condition (estimatedEndTime && effectiveNow < estimatedEndTime): ${estimatedEndTime && effectiveNow < estimatedEndTime}`); // Use effectiveNow for condition
+
+                if (estimatedEndTime && effectiveNow < estimatedEndTime) {
                     // In Use
+                    let timeDisplay = '';
+                    if (entryTime) {
+                        timeDisplay = `<span class="fw-bold text-accent">${entryTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span> ~ `;
+                    }
+                    timeDisplay += `<span class="fw-bold text-accent">${estimatedEndTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>`;
+                    console.log(`timeDisplay content: ${timeDisplay}`); // New debug log
+
                     content += `
                         <div class="table-status-form">
-                            <p class="mb-2">~ <span class="fw-bold text-accent">${estimatedEndTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span></p>
+                            <p class="mb-2">${timeDisplay}</p>
                             <form action="/admin/management/clear" method="post" onsubmit="submitFormWithAjax(event)">
                                 <input type="hidden" name="tableId" value="${table.id}" />
                                 <button type="submit" class="btn btn-danger btn-sm rounded-circle clear-btn"><i class="fa-solid fa-xmark"></i></button>
@@ -153,7 +181,7 @@
                 row.innerHTML = `
                     <td>${waiting.people}</td>
                     <td>${waiting.phone}</td>
-                    <td>${waiting.registeredAt}</td>
+                    <td>${new Date(waiting.registeredAt).toLocaleString('ko-KR')}</td>
                     <td><span class="${statusClass}">${waiting.status}</span></td>
                     <td>${managementButtons}</td>
                 `;
@@ -201,10 +229,12 @@
                 });
 
                 if (response.ok) {
+                    console.log('Form submitted successfully, fetching new data...'); // New debug log
                     fetchData(); // Refresh data on success
                 } else {
-                    console.error('Form submission failed:', response.statusText);
-                    alert('요청 처리에 실패했습니다.');
+                    const errorText = await response.text();
+                    console.error('Form submission failed:', response.statusText, errorText);
+                    alert('요청 처리에 실패했습니다: ' + errorText);
                 }
             } catch (error) {
                 console.error('Error submitting form:', error);
@@ -212,7 +242,14 @@
             }
         }
 
-        document.addEventListener("DOMContentLoaded", fetchData);
+        document.addEventListener("DOMContentLoaded", () => {
+            console.log('DOM Content Loaded, initial fetchData...'); // New debug log
+            fetchData();
+            document.querySelectorAll('.table-status-form form').forEach(form => {
+                form.addEventListener('submit', submitFormWithAjax);
+            });
+        });
+        
         setInterval(fetchData, 15000);
     </script>
 </body>

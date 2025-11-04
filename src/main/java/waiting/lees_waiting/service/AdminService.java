@@ -74,11 +74,21 @@ public class AdminService {
         return restaurantTableRepository.findAll();
     }
 
-    public void updateTableEntryTime(Long tableId, LocalTime entryTime) {
+    public void updateTableEntryTime(Long tableId, LocalTime inputEntryTime) {
         RestaurantTable table = restaurantTableRepository.findById(tableId)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid table Id:" + tableId));
-        LocalDateTime estimatedEndTime = entryTime.plusMinutes(80).atDate(java.time.LocalDate.now());
+
+        // 사용자가 입력한 시간을 서버의 현재 날짜와 결합하여 실제 입장 시각으로 설정
+        // (과거 시간 입력 시 현재 시간으로 조정하는 로직 제거)
+        LocalDateTime actualEntryDateTime = LocalDateTime.of(LocalDateTime.now().toLocalDate(), inputEntryTime);
+
+        // estimatedEndTime은 실제 입장 시각으로부터 80분 후
+        LocalDateTime estimatedEndTime = actualEntryDateTime.plusMinutes(80);
+        
+        // RestaurantTable에 저장 (entryTime은 실제 입장 시각의 시간 부분)
+        table.setEntryTime(actualEntryDateTime.toLocalTime()); 
         table.setEstimatedEndTime(estimatedEndTime);
+        
         restaurantTableRepository.save(table);
     }
 
@@ -98,6 +108,7 @@ public class AdminService {
         RestaurantTable table = restaurantTableRepository.findById(tableId)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid table Id:" + tableId));
         table.setEstimatedEndTime(null);
+        table.setEntryTime(null); // Also clear the entry time when clearing the table
         restaurantTableRepository.save(table);
     }
 }

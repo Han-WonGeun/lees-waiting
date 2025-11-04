@@ -53,7 +53,7 @@ public class ClientService {
         int tableIndex = (int) ((myWaitingOrder - 1) % tableCount);
 
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime openingTime = now.toLocalDate().atTime(10, 0);
+        LocalDateTime openingTime = now.toLocalDate().atTime(1, 0);
 
         // 4. 내가 이용할 테이블의 기본 입장 가능 시간 계산
         RestaurantTable myTable = tables.get(tableIndex);
