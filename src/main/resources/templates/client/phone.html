@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>연락처 입력</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="container d-flex flex-column justify-content-center align-items-center vh-100">
+        <div class="phone-container">
+            <h1 class="text-center mb-4"><i class="fa-solid fa-mobile-screen-button"></i> 연락처 입력</h1>
+            <form id="phone-form" action="/client/register" method="post">
+                <input type="hidden" name="people" th:value="${people}">
+                <input type="hidden" id="phone-input" name="phone">
+                
+                <div id="phone-display" class="phone-display"></div>
+
+                <div class="keypad">
+                    <button type="button" class="btn btn-light key">1</button>
+                    <button type="button" class="btn btn-light key">2</button>
+                    <button type="button" class="btn btn-light key">3</button>
+                    <button type="button" class="btn btn-light key">4</button>
+                    <button type="button" class="btn btn-light key">5</button>
+                    <button type="button" class="btn btn-light key">6</button>
+                    <button type="button" class="btn btn-light key">7</button>
+                    <button type="button" class="btn btn-light key">8</button>
+                    <button type="button" class="btn btn-light key">9</button>
+                    <button type="button" class="btn btn-light action-btn" id="clear-btn"><i class="fa-solid fa-eraser"></i></button>
+                    <button type="button" class="btn btn-light key">0</button>
+                    <button type="button" class="btn btn-light action-btn" id="backspace-btn"><i class="fa-solid fa-delete-left"></i></button>
+                </div>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-lg mt-4">등록</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const display = document.getElementById('phone-display');
+        const phoneInput = document.getElementById('phone-input');
+        const form = document.getElementById('phone-form');
+
+        let rawPhoneNumber = '';
+
+        const formatPhoneNumber = (number) => {
+            if (number.length > 3 && number.length <= 7) {
+                return `${number.slice(0, 3)}-${number.slice(3)}`;
+            } else if (number.length > 7) {
+                return `${number.slice(0, 3)}-${number.slice(3, 7)}-${number.slice(7)}`;
+            }
+            return number;
+        };
+
+        document.querySelectorAll('.key').forEach(button => {
+            button.addEventListener('click', () => {
+                if (rawPhoneNumber.length < 11) {
+                    rawPhoneNumber += button.textContent;
+                    display.textContent = formatPhoneNumber(rawPhoneNumber);
+                }
+            });
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            rawPhoneNumber = '';
+            display.textContent = '';
+        });
+
+        document.getElementById('backspace-btn').addEventListener('click', () => {
+            rawPhoneNumber = rawPhoneNumber.slice(0, -1);
+            display.textContent = formatPhoneNumber(rawPhoneNumber);
+        });
+
+        form.addEventListener('submit', (e) => {
+            if (rawPhoneNumber.length < 10) {
+                e.preventDefault();
+                alert('유효한 연락처를 입력해주세요. (10자리 이상)');
+            } else {
+                phoneInput.value = rawPhoneNumber;
+            }
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+</body>
+</html>

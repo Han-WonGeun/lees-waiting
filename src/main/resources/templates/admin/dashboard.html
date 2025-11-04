@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>관리자 대시보드</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .actions form { display: inline; }
+        .actions button { padding: 5px 10px; margin-left: 5px; cursor: pointer; }
+        .btn-enter { background-color: #28a745; color: white; border: none; }
+        .btn-cancel { background-color: #dc3545; color: white; border: none; }
+    </style>
+</head>
+<body>
+
+<h1>웨이팅 현황</h1>
+
+<meta http-equiv="refresh" content="30">
+
+<table>
+    <thead>
+    <tr>
+        <th>No.</th>
+        <th>접수 시간</th>
+        <th>휴대폰 번호</th>
+        <th>인원</th>
+        <th>관리</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="client, iterStat : ${waitingList}">
+        <td th:text="${iterStat.count}">1</td> <td th:text="${#temporals.format(client.registeredAt, 'HH:mm:ss')}">14:30:05</td> <td th:text="${client.phoneNumber}">010-1234-5678</td>
+        <td th:text="${client.numberOfPeople}">2</td>
+        <td class="actions">
+            <form th:action="@{/admin/update-status/{id}(id=${client.id})}" method="post">
+                <input type="hidden" name="status" value="ENTERED" />
+                <button type="submit" class="btn-enter">입장</button>
+            </form>
+            <form th:action="@{/admin/update-status/{id}(id=${client.id})}" method="post">
+                <input type="hidden" name="status" value="CANCELED" />
+                <button type="submit" class="btn-cancel">취소</button>
+            </form>
+        </td>
+    </tr>
+
+    <tr th:if="${waitingList.isEmpty()}">
+        <td colspan="5" style="text-align: center;">현재 웨이팅이 없습니다.</td>
+    </tr>
+    </tbody>
+</table>
+
+</body>
+</html>
